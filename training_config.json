@@ -1,0 +1,87 @@
+{
+  "manuscript_id": "technologies-4653627",
+  "model_name": "HyKGA (Hybrid Knowledge-Graph Attention)",
+  "random_seeds": [42, 104, 256, 512, 1024],
+  "architecture": {
+    "text_backbone": "bert-base-uncased",
+    "num_transformer_layers": 12,
+    "hidden_size_d": 768,
+    "num_attention_heads": 12,
+    "gnn_type": "GAT",
+    "num_gnn_layers": 3,
+    "gnn_hidden_size_d_g": 256,
+    "gnn_attention_heads": 8,
+    "contrastive_projection_dim_d_z": 256,
+    "graph_pe_scales": ["degree", "pagerank", "betweenness", "closeness"],
+    "total_parameters_millions": 142.0
+  },
+  "symbolic_compilation": {
+    "ontology_file": "social_discourse_ontology.owl",
+    "concepts": ["User", "Message", "Topic", "Location", "Sentiment", "Event", "Hashtag"],
+    "relations": [
+      "authored_by",
+      "mentions",
+      "located_in",
+      "expresses_sentiment",
+      "interacts_with",
+      "follows",
+      "retweets",
+      "no_relation"
+    ],
+    "c_dir_admissible_entries": 10,
+    "c_symmetric_reflexive_admissible_entries": 23,
+    "c_total_entries": 49,
+    "functional_relations_max_1_per_message": ["authored_by", "expresses_sentiment"],
+    "irreflexive_relations": ["follows"],
+    "training_conflict_clamp_lambda_conflict": 5.0,
+    "entropy_gated_adaptive_relaxation": {
+      "enabled_in_adaptive_variant": true,
+      "normalized_entropy_threshold_tau_ent": 0.65,
+      "fallback_soft_penalty_lambda_pen": 3.0
+    }
+  },
+  "temporal_and_causal_graph": {
+    "khop_depth_k": 2,
+    "temporal_decay_gamma_per_day": 0.1,
+    "centrality_snapshot_refresh_minutes": 15,
+    "anti_leakage_protocol": {
+      "strict_temporal_causality": "t_e < tau_i",
+      "direct_target_pair_excision": "{u, v} != {e_h, e_t} in both directions and across all relations",
+      "split_isolation": "validation and test target triples excluded from historical graph store"
+    }
+  },
+  "training": {
+    "optimizer": "AdamW",
+    "learning_rate": 2e-5,
+    "weight_decay": 0.01,
+    "batch_size": 32,
+    "max_seq_length": 64,
+    "epochs": 50,
+    "gold_type_warmup_epochs": 5,
+    "precision": "fp16_mixed",
+    "hardware": "4x NVIDIA A100-SXM4-40GB",
+    "loss_weights": {
+      "lambda_task": 1.0,
+      "lambda_type": 0.5,
+      "lambda_1_contrastive": 0.3,
+      "lambda_2_onto_unmasked": 0.1,
+      "infonce_temperature_init_tau": 0.07
+    }
+  },
+  "evaluation": {
+    "link_prediction_candidate_pool_size": 500,
+    "link_prediction_protocol": "filtered_tail_entity_ranking_bordes_et_al",
+    "tie_breaking": "mean_rank",
+    "significance_test": "paired_two_tailed_t_test_across_5_seeds"
+  },
+  "qlora_llm_baselines": {
+    "models": ["meta-llama/Meta-Llama-3-8B-Instruct", "mistralai/Mistral-7B-Instruct-v0.3"],
+    "quantization": "4bit-nf4",
+    "lora_rank_r": 16,
+    "lora_alpha": 32,
+    "lora_dropout": 0.05,
+    "target_modules": ["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"],
+    "epochs": 5,
+    "local_inference_engine": "vLLM + FlashAttention-2 (FP16 on single NVIDIA A100-40GB)"
+  }
+}
